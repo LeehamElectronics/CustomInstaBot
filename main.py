@@ -4,9 +4,12 @@
 from argparse import ArgumentParser
 from glob import glob
 from os.path import expanduser
+import os
 from platform import system
 from sqlite3 import OperationalError, connect
+from datetime import datetime
 
+import json
 import yaml
 
 try:
@@ -49,6 +52,43 @@ class CustomInstaLoader:
             follower_username = follower.username
             list_of_followers.append(follower_username)
         print(f"List of {user_name}'s followers: \n{list_of_followers}")
+
+        try:
+            # compare difference from last time
+            list_of_files = glob('database/*')  # * means all if need specific format then *.csv
+            latest_file = max(list_of_files, key=os.path.getctime)
+            with open(latest_file, 'r') as openfile:
+                last_save = json.load(openfile)
+                prev_list_of_followers = last_save[user_name]['followers']
+
+                # check for lost followers
+                difference_list = []
+                for user in prev_list_of_followers:
+                    if user not in list_of_followers:
+                        difference_list.append(user)
+                print(f'list of lost followers: {difference_list}')
+
+                # check for new followers
+                difference_list = []
+                for user in list_of_followers:
+                    if user not in prev_list_of_followers:
+                        difference_list.append(user)
+                print(f'list of gained followers: {difference_list}')
+
+        except Exception as error:
+            print('no previously saved follower database files found!')
+
+        dict_obj = {user_name: {}}
+        dict_obj[user_name]['followers'] = list_of_followers
+        dict_obj[user_name]['follower_count'] = profile.followers
+
+        # Serializing json
+        json_object = json.dumps(dict_obj, indent=4)
+
+        current_date = datetime.today().strftime('%Y-%m-%d %H-%M-%S')
+        # Writing to sample.json
+        with open(f"database/follower_db-{current_date}.json", "w") as outfile:
+            outfile.write(json_object)
 
     def login(self):
         print('attempting login to insta servers')
